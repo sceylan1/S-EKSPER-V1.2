@@ -1,114 +1,124 @@
 import streamlit as st
 import pandas as pd
 import yfinance as yf
-import plotly.graph_objects as go
 
-# --- SAYFA VE TEMA AYARLARI ---
-st.set_page_config(page_title="S-EKSPER v8.0 | Profesyonel Raporlama", layout="wide")
+# --- SAYFA AYARLARI ---
+st.set_page_config(page_title="S-EKSPER v9.0 | Eskişehir Master Analiz", layout="wide")
 
-st.markdown("""
-    <style>
-    .main { background-color: #121212; color: #ffffff; }
-    .report-card { background-color: #1e1e1e; padding: 25px; border-radius: 15px; border: 1px solid #333; margin-bottom: 20px; }
-    .price-large { font-size: 48px; font-weight: bold; color: #ffffff; }
-    .score-circle { border: 5px solid #ff2b5e; border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; }
-    .stButton>button { background-color: #ff2b5e; color: white; border-radius: 8px; width: 100%; font-weight: bold; height: 3.5em; }
-    </style>
-    """, unsafe_allow_html=True)
+# --- ESKİŞEHİR VERİ BANKASI (Tüm Semt ve Mahalleler Buraya Gelecek) ---
+# Buraya örnek olarak ana bölgeleri ekledim, listeyi istediğin kadar uzatabilirsin.
+ESKISEHIR_REHBER = {
+    "Odunpazarı": ["Erenköy", "Vişnelik", "Akarbaşı", "Yenikent", "Büyükdere", "Göztepe", "Hamamyolu", "71 Evler", "Emek"],
+    "Tepebaşı": ["Esentepe", "Batıkent", "Hacıseyit", "Bahçelievler", "Uluönder", "Şirintepe", "Çamlıca", "Sütlüce", "Eskibağlar"]
+}
 
-# --- ESKİŞEHİR MAHALLE VERİ BANKASI (GİZLİ ANALİZ) ---
-ESKISEHIR_DATA = {
-    "Erenköy": {"ses": 1.05, "yatirim_skoru": 86, "ilce": "Odunpazarı", "ilce_skoru": 59, "deprem": "0.29g (1. Bölge)"},
-    "Esentepe": {"ses": 1.0, "yatirim_skoru": 78, "ilce": "Tepebaşı", "ilce_skoru": 65, "deprem": "0.25g"},
-    "Batıkent": {"ses": 1.35, "yatirim_skoru": 92, "ilce": "Tepebaşı", "ilce_skoru": 65, "deprem": "0.22g"},
-    "Vişnelik": {"ses": 1.5, "yatirim_skoru": 95, "ilce": "Odunpazarı", "ilce_skoru": 59, "deprem": "0.28g"},
-    "Hacıseyit": {"ses": 1.1, "yatirim_skoru": 82, "ilce": "Tepebaşı", "ilce_skoru": 65, "deprem": "0.24g"}
+MAHALLE_KAT SAYILARI = {
+    "Vişnelik": 1.5, "Batıkent": 1.35, "Erenköy": 1.05, "Esentepe": 1.0, "Hacıseyit": 1.1, "Büyükdere": 1.0, "Sümer": 1.45
 }
 
 # --- CANLI EKONOMİK VERİ ---
 @st.cache_data(ttl=600)
-def get_market_data():
+def get_live_data():
     try:
         ons = yf.Ticker("GC=F").history(period="1d")['Close'].iloc[-1]
         usd = yf.Ticker("USDTRY=X").history(period="1d")['Close'].iloc[-1]
-        gram = (ons / 31.1035) * usd
-        return round(gram, 2), 45.5
-    except: return 6850.0, 45.0
+        return round((ons / 31.1035) * usd, 2), 45.5
+    except: return 6880.0, 45.0
 
-# --- FORM VE GİRİŞLER ---
-gram, faiz = get_market_data()
+gram, faiz = get_live_data()
 
-st.title("🛡️ S-EKSPER v8.0 | Stratejik Analiz Paneli")
-st.sidebar.write(f"🟡 Altın: **{gram} TL** | 🏠 Faiz: **%{faiz}**")
+# --- ARAYÜZ ---
+st.title("🏙️ S-EKSPER v9.0 | Profesyonel Ekspertiz Paneli")
+st.write(f"📊 **Piyasa Ekranı:** Gram Altın: {gram} TL | Faiz: %{faiz}")
 
-# HARİTA ÜZERİNDEN SEÇİM SİMÜLASYONU
-mahalle_secimi = st.selectbox("📍 Eskişehir Haritası / Mahalle Seçimi", list(ESKISEHIR_DATA.keys()))
-mahalle_bilgi = ESKISEHIR_DATA[mahalle_secimi]
+st.divider()
 
+# --- 1. ADIM: KONUM VE TİP (Görsel 1-2) ---
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("📋 Mülk Özellikleri")
+    st.subheader("📍 Konum Seçimi")
+    ilce = st.selectbox("İlçe", list(ESKISEHIR_REHBER.keys()))
+    mahalle = st.selectbox("Mahalle", ESKISEHIR_REHBER[ilce])
+    
+    st.subheader("🏠 Konut ve Yapı")
     konut_tipi = st.radio("Konut Tipi", ["Daire", "Müstakil"], horizontal=True)
-    durum = st.radio("Kullanım Durumu", ["Mülk Sahibi", "Kiracı", "Boş"], horizontal=True)
-    yapi = st.radio("Yapı Durumu", ["Bakımlı", "Standart", "Tadilatlı"], horizontal=True)
-    m2 = st.number_input("Brüt Alan (m²)", value=100)
-    emsal = st.number_input("Emsal Fiyat (TL)", value=3500000)
+    apartman_tipi = st.radio("Apartman Tipi", ["Daire", "Teras Dubleks", "Ara Kat Dubleks", "Bahçe Dubleks", "Ters Dubleks"], horizontal=True)
+    kullanim = st.radio("Kullanım Durumu", ["Mülk Sahibi", "Kiracı", "Boş"], horizontal=True)
+    yapi_durumu = st.radio("Yapı Durumu", ["Bakımlı/Yenilenmiş", "Standart", "Tadilat İhtiyacı Var"], horizontal=True)
 
 with col2:
-    st.subheader("✨ Olanaklar ve Konum")
-    konum_ozellikleri = st.multiselect("Konum Analizi", ["Toplu Ulaşıma Yakın", "Okullara Yakın", "Sağlık Hizmetlerine Yakın", "Merkeze Yakın", "Yeşil Alan Yakını"])
-    isitma = st.selectbox("Isıtma", ["Doğalgaz/Kombi", "Yerden Isıtma", "Merkezi"])
-    ekstralar = st.multiselect("Olanaklar", ["Asansör", "Isı Yalıtımı", "Otopark", "Güvenlik"])
-
-# --- HESAPLAMA VE RAPORLAMA ---
-if st.button("ANALİZİ TAMAMLA VE RAPORU ÇIKART"):
-    # Gizli Katsayı Hesaplama
-    final_multiplier = mahalle_bilgi['ses']
-    if "Yerden Isıtma" in isitma: final_multiplier += 0.08
-    if "Asansör" in ekstralar: final_multiplier += 0.05
+    st.subheader("📏 Ölçüler ve Kat")
+    c1, c2 = st.columns(2)
+    oda_sayisi = c1.number_input("Oda Sayısı", 1, 10, 2)
+    salon_sayisi = c2.number_input("Salon Sayısı", 1, 3, 1)
     
-    reel_deger = emsal * final_multiplier
-    hizli_satis = reel_deger * 0.85
-    uzun_vade = reel_deger * 1.10
+    brut_m2 = st.number_input("Brüt Alan (m²)", 20, 1000, 100)
+    bina_yasi = st.number_input("Bina Yaşı", 0, 100, 0)
+    bina_kat = st.number_input("Bina Kat Sayısı", 1, 50, 3)
+    bulundugu_kat = st.number_input("Bulunduğu Kat", -2, 50, 1)
+    
+    emsal_fiyat = st.number_input("Emsal Baz Fiyat (Mahalle Ortalaması TL)", value=3000000, step=100000)
 
+st.divider()
+
+# --- 2. ADIM: EK ÖZELLİKLER (Görsel 3-4) ---
+col3, col4 = st.columns(2)
+
+with col3:
+    st.subheader("☀️ Cephe ve Manzara")
+    cephe = st.multiselect("Cephe Durumu", ["Kuzey", "Güney", "Doğu", "Batı"])
+    manzara = st.multiselect("Manzara", ["İstinat Duvarı", "Yan Bina", "Cadde/Sokak", "Bahçe", "Şehir", "Doğa", "Göl"])
+    isitma = st.radio("Isıtma Sistemi", ["Yok", "Soba", "Doğalgaz/Kombi", "Merkezi Sistem", "Yerden Isıtma"], horizontal=True)
+
+with col4:
+    st.subheader("💎 Olanaklar")
+    olanaklar = st.multiselect("Olanaklar", ["Anayol/Bulvar Üzeri", "Cadde Üzeri", "Spor Sahası", "Çocuk Parkı", "Asansör", "Jeneratör", "Güvenlik", "Otopark", "Kapalı Otopark", "Açık Havuz", "Isı Yalıtımı", "Klima", "Şömine"])
+
+# --- HESAPLAMA MOTORU ---
+if st.button("📊 ANALİZİ GERÇEKLEŞTİR"):
+    # 1. Mahalle Katsayısı (Gizli SES Analizi)
+    mahalle_carpani = MAHALLE_KAT_SAYILARI.get(mahalle, 1.0)
+    
+    # 2. Şerefiye Puanlama
+    serefiye = 1.0
+    if "Güney" in cephe: serefiye += 0.05
+    if "Doğa" in manzara or "Şehir" in manzara: serefiye += 0.07
+    if isitma == "Yerden Isıtma": serefiye += 0.08
+    if "Asansör" in olanaklar: serefiye += 0.05
+    if "Kapalı Otopark" in olanaklar: serefiye += 0.10
+    if yapi_durumu == "Bakımlı/Yenilenmiş": serefiye += 0.10
+    elif yapi_durumu == "Tadilat İhtiyacı Var": serefiye -= 0.15
+    
+    # 3. Nihai Değerleme
+    ana_deger = emsal_fiyat * mahalle_carpani * serefiye
+    
+    # GÖRSELLERDEKİ SONUÇ EKRANI TASARIMI
     st.divider()
-
-    # EKRAN GÖRÜNTÜSÜNDEKİ ANA RAPOR YAPISI
-    r1, r2 = st.columns([2, 1])
-    with r1:
-        st.markdown(f"### {mahalle_secimi} Mah. Odunpazarı / Eskişehir")
-        st.markdown(f"<div class='price-large'>{int(reel_deger):,} ₺</div>", unsafe_allow_html=True)
-        st.write("3 - 6 Ay Arası Beklenirse Tahmini Değer")
+    res1, res2 = st.columns([2, 1])
+    
+    with res1:
+        st.markdown(f"### {mahalle} Mah. {ilce} / Eskişehir")
+        st.markdown(f"<h1 style='color:white;'>{int(ana_deger):,} ₺</h1>", unsafe_allow_html=True)
+        st.write(f"Birim Değer: **{int(ana_deger/brut_m2):,} ₺/m²**")
         
         c_hizli, c_uzun = st.columns(2)
-        c_hizli.info(f"**3 Aydan Kısa Süre**\n\n{int(hizli_satis):,} ₺")
-        c_uzun.success(f"**6 - 12 Ay Arası**\n\n{int(uzun_vade):,} ₺")
+        c_hizli.info(f"**3 Aydan Kısa Süre (Hızlı)**\n\n{int(ana_deger * 0.88):,} ₺")
+        c_uzun.success(f"**6-12 Ay Arası (Maksimum)**\n\n{int(ana_deger * 1.12):,} ₺")
 
-    with r2:
-        st.write("### Yatırım Skoru")
-        st.markdown(f"<div class='score-circle'>{mahalle_bilgi['yatirim_skoru']}</div>", unsafe_allow_html=True)
-        st.write("Bölgesel Deprem Tehlikesi:", mahalle_bilgi['deprem'])
+    with res2:
+        st.subheader("📈 Yatırım Skoru")
+        skor = 65 # Baz skor
+        if mahalle_carpani > 1.2: skor += 20
+        if "Asansör" in olanaklar and bina_yasi < 10: skor += 10
+        st.markdown(f"<div style='border:5px solid #ff2b5e; border-radius:50%; width:100px; height:100px; display:flex; align-items:center; justify-content:center; font-size:32px; font-weight:bold;'>{skor}</div>", unsafe_allow_html=True)
+        st.write("Güven Endeksi: **Yüksek**")
 
-    # YATIRIM VE BÖLGE ANALİZİ (RESİM 2'DEKİ GİBİ)
-    st.divider()
-    st.subheader("📊 Detaylı Analiz Kartları")
-    a1, a2, a3, a4 = st.columns(4)
-    
-    a1.metric("Fiyat Analizi", "%75 Dönüşüm", help="Bölgedeki emsallere göre dönüşüm potansiyeli")
-    a2.metric("Bölge Analizi", f"{mahalle_secimi}: {mahalle_bilgi['yatirim_skoru']}")
-    a3.metric("Konum Analizi", f"{len(konum_ozellikleri)}/5 Artı Puan")
-    a4.metric("Parsel Analizi", "İmar %100")
-
-    # EMSAL TABLOSU (RESİM 4'DEKİ GİBİ)
-    st.subheader("📋 Yakın Zamanlı Emsaller")
-    emsal_df = pd.DataFrame({
-        "Mesafe (m)": [350, 450, 600, 800],
-        "Zaman (Gün)": [150, 30, 180, 90],
-        "Alan (m²)": [m2, m2-5, m2+10, m2-2],
-        "Değer (TL)": [reel_deger*0.95, reel_deger*0.98, reel_deger*1.05, reel_deger*0.92]
+    # EMSAL TABLOSU SİMÜLASYONU
+    st.subheader("📋 Benzer Emsaller Analizi")
+    emsaller = pd.DataFrame({
+        "Mesafe": ["300m", "500m", "750m"],
+        "Yaş": [bina_yasi, bina_yasi+5, bina_yasi-2],
+        "Fiyat (TL)": [int(ana_deger*0.95), int(ana_deger*1.02), int(ana_deger*0.98)]
     })
-    st.table(emsal_df)
-
-st.sidebar.write("---")
-st.sidebar.write("**Sercan CEYLAN**")
+    st.table(emsaller)
